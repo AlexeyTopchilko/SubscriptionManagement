@@ -11,6 +11,13 @@ Small full-stack subscription manager: ASP.NET Core 8 Web API backend with in-me
 
 For detailed architecture, route table, state machine, data flow diagrams, and a navigation guide, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).
 
+## Workflow — Definition of Ready gate
+
+Before starting work on any ticket (Linear issue, bug, or task), it **must** be run through the `/definition-of-ready` skill first. Only proceed with implementation if the verdict is **READY**.
+
+- If the verdict is **NOT READY**, do not start coding or branch. Report the gaps and recommendations back to the user and wait for the ticket to be updated (or for an explicit override).
+- This gate applies before branch creation — there is no point in branching for a ticket that isn't ready.
+
 ## Workflow — branches & pull requests
 
 All features and bug fixes are developed on a dedicated branch and merged into `main` through a GitHub pull request. **Do not commit features or fixes directly to `main`.**

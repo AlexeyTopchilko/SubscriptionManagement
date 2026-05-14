@@ -11,6 +11,15 @@ Small full-stack subscription manager: ASP.NET Core 8 Web API backend with in-me
 
 For detailed architecture, route table, state machine, data flow diagrams, and a navigation guide, see [docs/CODEBASE_MAP.md](docs/CODEBASE_MAP.md).
 
+## Workflow — branches & pull requests
+
+All features and bug fixes are developed on a dedicated branch and merged into `main` through a GitHub pull request. **Do not commit features or fixes directly to `main`.**
+
+- Create a new branch off the latest `main` for every Linear issue, feature, or bug fix. Prefer the branch name Linear suggests (`gitBranchName` field on the issue, e.g. `alexeytopchilko/ale-5-fix-502-status-code`); otherwise use `feature/<short-slug>` or `fix/<short-slug>`.
+- Push the branch and open a PR against `main` with `gh pr create`. Reference the Linear issue ID (e.g. `ALE-5`) in the PR title or body so Linear auto-links it.
+- Keep `main` exclusively for merge commits / squashes from PRs.
+- Direct commits to `main` are reserved for trivial repo-meta changes (root `README.md`, `.gitignore`, `.mcp.json`, CLAUDE.md, docs) — when in doubt, branch.
+
 ## Commands
 
 ### Backend (.NET 8 Web API)

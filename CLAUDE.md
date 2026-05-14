@@ -20,6 +20,16 @@ All features and bug fixes are developed on a dedicated branch and merged into `
 - Keep `main` exclusively for merge commits / squashes from PRs.
 - Direct commits to `main` are reserved for trivial repo-meta changes (root `README.md`, `.gitignore`, `.mcp.json`, CLAUDE.md, docs) — when in doubt, branch.
 
+## Workflow — post-fix verification & PR creation
+
+Once a fix or feature has been implemented locally, follow this sequence **in order** before the work is considered ready for review:
+
+1. **Test the change end-to-end.** Reproduce the original scenario from the ticket and confirm every acceptance criterion. For backend changes, exercise the relevant endpoints; for frontend changes, drive the UI in a browser. If the ticket lists explicit AC, hit each one; if there are no formal AC, at minimum cover the original repro steps.
+2. **Comment on the Linear ticket** summarizing what was tested and the outcome. Include the concrete results — endpoints hit and their status codes, UI flows exercised, log lines that prove the bug is gone. This comment is the testing record; do not skip it.
+3. **Only after the comment is posted, create the pull request yourself** (via `gh pr create` or the GitHub MCP — do not just hand a "create PR" URL to the user). Reference the Linear issue ID in the PR title or body so Linear auto-links it.
+
+If verification fails at step 1, do not move on — fix the implementation and re-test. If you cannot run the verification (no Docker, no browser, environment unavailable), say so explicitly in the Linear comment rather than silently skipping.
+
 ## Commands
 
 ### Backend (.NET 8 Web API)

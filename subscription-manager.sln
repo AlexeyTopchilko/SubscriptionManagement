@@ -1,0 +1,32 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{1AE8ACA6-933B-BF2A-3671-3E2EAC007D16}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0F9113EE-888A-26D2-68B0-4A7D0A2A8745}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SubscriptionManager.Api", "backend\src\SubscriptionManager.Api\SubscriptionManager.Api.csproj", "{EA9D3CE4-2B31-113F-9B94-C96056118719}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EA9D3CE4-2B31-113F-9B94-C96056118719}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA9D3CE4-2B31-113F-9B94-C96056118719}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA9D3CE4-2B31-113F-9B94-C96056118719}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA9D3CE4-2B31-113F-9B94-C96056118719}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0F9113EE-888A-26D2-68B0-4A7D0A2A8745} = {1AE8ACA6-933B-BF2A-3671-3E2EAC007D16}
+		{EA9D3CE4-2B31-113F-9B94-C96056118719} = {0F9113EE-888A-26D2-68B0-4A7D0A2A8745}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {89E4544E-640A-4C34-88D7-51BF497A1364}
+	EndGlobalSection
+EndGlobal

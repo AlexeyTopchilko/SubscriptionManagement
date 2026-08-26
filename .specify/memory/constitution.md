@@ -1,6 +1,49 @@
 <!--
 Sync Impact Report
 ==================
+
+v1.0.0 → v1.1.0  (amendment, ALE-12)
+------------------------------------
+Version change: 1.0.0 → 1.1.0
+Bump rationale: MINOR. Judged against this file's own versioning policy:
+  - Not MAJOR — no principle is removed, and no previously compliant code becomes
+    non-compliant. The existing in-memory façade satisfies both the old and the new
+    wording.
+  - Not PATCH — PATCH is reserved for changes that alter no obligation. This one
+    frees the physical storage layout and sharpens the access-path rule, so
+    obligations do change.
+  - MINOR — guidance is materially expanded by a distinction that was previously
+    absent: the aggregate's consistency boundary and access path versus its schema.
+
+Modified principles:
+  - I. Customer Is the Aggregate Root — title unchanged, body restated.
+
+What changed and why: the v1.0.0 text required a Subscription to be "stored inside
+  its parent's Customer.Subscriptions list" and required ISubscriptionRepository to
+  "load the customer, mutate its list, save the customer back". Both clauses described
+  the in-memory implementation that existed at ratification and mistook it for the
+  rule. Read literally they forbid relational persistence outright, because rows
+  cannot be stored inside a list — which would have made the persistence feature
+  (ALE-9) non-compliant before any code was written.
+
+  The principle now binds what it was always meant to protect: subscription routes
+  stay nested, no access path bypasses the aggregate root, repository signatures
+  always carry a customerId, and the aggregate is written as one consistency unit.
+  It now explicitly frees the physical layout — a separate Subscriptions table with a
+  foreign key is permitted and expected for a relational provider, and the choice
+  belongs in plan.md.
+
+Added sections: none. Removed sections: none.
+Unchanged: Principles II-VI, Additional Constraints, Development Workflow, Governance.
+Follow-up TODOs: none.
+
+Process note: this amendment was surfaced by a Definition of Ready check on ALE-9
+  before any spec was generated, not by a failing build. Had it been caught after
+  speckit-specify ran, the Development Workflow rule below (fix the spec and re-run,
+  never patch generated code) would have required restarting the cycle.
+
+v1.0.0  (initial ratification)
+------------------------------
 Version change: (unpopulated template) → 1.0.0
 Bump rationale: Initial ratification. The prior file was the unmodified
   constitution-template scaffold containing only [ALL_CAPS] placeholders and no
@@ -39,19 +82,35 @@ Verification note: every principle below was checked against source before being
 
 ### I. Customer Is the Aggregate Root
 
-`Customer` is the only aggregate root. A `Subscription` MUST be stored inside its parent's
-`Customer.Subscriptions` list; no standalone subscription store may be introduced.
+`Customer` is the only aggregate root. A `Subscription` is reachable only through its parent
+customer, and the two are made durable together.
+
+What this binds:
 
 - Every subscription route MUST be nested under `/api/customers/{customerId}/subscriptions/...`
   and MUST require a `customerId`. A top-level `/api/subscriptions` route is forbidden.
-- `ISubscriptionRepository` implementations MUST remain a façade over `ICustomerRepository`:
-  load the customer, mutate its list, save the customer back.
-- Reaching a subscription without resolving its parent customer first is a violation, even when
-  a direct lookup would be faster.
+- A subscription MUST NOT be reachable without resolving its parent customer first. No second
+  access path may bypass the aggregate root — this holds regardless of whether a direct lookup
+  would be faster, or whether the storage engine could support one.
+- Repository interfaces MUST NOT expose any operation that retrieves or mutates a subscription
+  without a `customerId` in its signature.
+- A customer and its subscriptions MUST be written as a single consistency unit, so a
+  subscription can never be persisted in a state its parent does not reflect.
 
-Rationale: the aggregate boundary is what keeps a subscription from outliving or contradicting
-its customer. Once a second access path exists, that invariant can no longer be enforced in
-one place.
+What this explicitly does not bind:
+
+- The physical storage layout is not a constitutional matter. A separate `Subscriptions` table
+  keyed by a foreign key to `Customers` is permitted, and is the expected relational mapping; an
+  in-memory `List<Subscription>` is equally permitted. Choosing between them is a `plan.md`
+  decision.
+
+Rationale: the aggregate boundary governs *who may reach* a subscription and *when it becomes
+durable* — not how many tables it occupies. The v1.0.0 wording required a subscription to be
+"stored inside its parent's `Customer.Subscriptions` list" and required repositories to "load the
+customer, mutate its list, save the customer back". Both described the in-memory implementation
+that happened to exist at ratification and mistook it for the rule. Taken literally they forbid
+relational persistence entirely, since rows cannot live inside a list. The invariant worth
+protecting survives any storage engine; the mechanism never was the invariant.
 
 ### II. Expected Failures Are Returned, Not Thrown
 
@@ -234,4 +293,4 @@ A reviewer finding a violation MUST either request a change or require an amendm
 merging a known violation without one is not permitted. Added complexity MUST be justified — the
 stack is deliberately small, and "it might be useful later" is not a justification.
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-26
+**Version**: 1.1.0 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-26

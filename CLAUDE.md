@@ -101,6 +101,17 @@ npm run preview   # serve built bundle
 ```
 No lint, formatter, or test script is configured.
 
+### API baseline (regression checking without tests)
+```powershell
+# Start the API fresh first — storage is in-memory, so leftover mutations shift the seed data
+./tools/capture-api-baseline.ps1                       # regenerates docs/api-baseline.md
+
+# After a change that could alter the wire contract:
+./tools/capture-api-baseline.ps1 -OutFile after.md
+git diff --no-index docs/api-baseline.md after.md      # any diff is a contract change
+```
+`docs/api-baseline.md` is a committed snapshot of all 29 endpoint cases — status codes and response shapes, including negative paths and the full status state machine. GUIDs, timestamps and trace ids are normalised so reruns are byte-identical. It is **not** a test suite: it asserts nothing and fails no build. It is the substitute reference this repo needs while it has no tests, and it is how the "no automated verification" gap is partially mitigated.
+
 ### Full stack via Docker
 ```powershell
 docker-compose up        # backend :5000, frontend (nginx) :80

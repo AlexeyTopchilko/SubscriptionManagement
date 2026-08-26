@@ -69,7 +69,23 @@ reviewer disagrees with the choice, this is the paragraph to argue with — afte
 it becomes considerably more expensive to revisit.
 
 **Counts.** 3 user stories (P1/P2/P3, each independently testable), 16 acceptance scenarios,
-7 edge cases, 21 functional requirements across four groups, 6 measurable outcomes, 7 recorded
+7 edge cases, 24 functional requirements across four groups, 6 measurable outcomes, 10 recorded
 assumptions.
 
-Ready for `/speckit-clarify` or `/speckit-plan`.
+**Re-validated after `/speckit-clarify` (same day).** Four clarifications were accepted and
+integrated: concurrency resolution, seeding behaviour, single-command startup, and monetary
+precision. No checklist item changed state — 16/16 before, 16/16 after. The spec became more
+precise rather than differently scoped, and the one item carrying a caveat above ("written for
+non-technical stakeholders") carries it for the same reason as before: FR-024 on decimal
+precision is exact where a looser wording would be untestable.
+
+Worth noting that clarify found a defect in this specification rather than merely filling a
+gap. The original edge case for concurrent writes required that simultaneous modifications
+"must not silently discard one another" — a stronger guarantee than the application provides
+today, and one that could only be met by adding a conflict response, which would have broken
+the very contract this feature preserves. The requirement was an accidental scope increase
+introduced by the spec itself. It is now FR-022, weakened to match reality and explicit about
+where the real limit lies: losing a field value is accepted, losing or duplicating a record
+is not.
+
+Ready for `/speckit-plan`.

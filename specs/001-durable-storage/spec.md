@@ -8,6 +8,15 @@
 
 **Input**: Tracked as ALE-9. Customers and their subscriptions must survive an application restart, with no observable change to the API contract other than one ordering change declared in this document.
 
+## Clarifications
+
+### Session 2026-08-26
+
+- Q: How should two simultaneous changes to the same customer be resolved? → A: Last write wins, documented. No conflict detection and no new response for a stale write, because either would change the API contract this feature exists to preserve. The binding requirement is narrower: the aggregate must never be left internally broken — a subscription must not be lost or duplicated by concurrent writes, even though one writer's field values may be overwritten by another's.
+- Q: What happens to the three demonstration records once storage is durable? → A: Seed them only when storage is empty. On a first start against empty storage the three records are written; on every subsequent start nothing is seeded and nothing is reconciled. From that point they are ordinary data — edits to them persist, and a deleted one stays deleted across restarts.
+- Q: What is required of starting the whole stack with one command? → A: One command must yield a working stack. Where storage runs as a separate service that may still be starting, the application waits a bounded time for it to become ready before giving up, then fails visibly. This refines FR-005: the failure is reported after a bounded wait rather than on the first unsuccessful attempt, so a normal startup race is not mistaken for a fault.
+- Q: What does the spec guarantee about the precision of monetary amounts in storage? → A: Exact decimal with an explicitly declared precision and scale. An amount is stored and returned unchanged, with no rounding and no floating-point approximation, and the precision is a stated decision rather than whatever a storage driver happens to default to. Every amount in use today is a whole number, so the defect would not appear until the first fractional price — and with no automated tests, that is a long way from where it was introduced.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Work is not lost when the application restarts (Priority: P1)
@@ -72,7 +81,7 @@ Someone opening a customer sees that customer's subscriptions in a stable, sensi
 - **Storage unreachable at startup.** The application must not appear healthy while being unable to serve or retain anything. Failing to start visibly is preferable to starting into a state where every request fails for reasons a caller cannot interpret.
 - **Storage becomes unreachable while running.** A request that cannot be completed must be reported as a server-side failure with no detail leaked about the storage layer — the existing behaviour for unexpected failures. It must not be reported as a validation error, which would tell the caller their input was at fault when it was not.
 - **A write that is interrupted part-way.** A customer and its subscriptions form one unit. A subscription must never become durable in a state its parent customer does not reflect; after any interruption, a reader sees either all of a change or none of it.
-- **Two changes to the same customer at once.** Simultaneous modifications must not silently discard one another, and must not leave the customer's subscription list internally inconsistent — for example holding a subscription twice, or losing one that was added.
+- **Two changes to the same customer at once.** The later write wins and may overwrite field values set by the earlier one. That is the behaviour today and it is retained deliberately: detecting the conflict would require a new rejection response, which would break the contract this feature exists to preserve. What must *not* happen is structural damage — the customer's subscription list must never end up holding a subscription twice, or missing one that was successfully added. Losing a field value is accepted; losing or duplicating a record is not.
 - **Deleting a customer that still has subscriptions.** Those subscriptions must not survive their parent. A subscription reachable only through a customer that no longer exists is unreachable by definition, and must not linger in storage.
 - **Very first start against empty storage.** Whether demonstration records are present must be a stated outcome, not an accident of which code path ran first.
 - **Restart with no changes made.** Restarting must not alter anything by itself. Reading the same collection before and after an idle restart returns identical content in an identical order.
@@ -86,15 +95,18 @@ Someone opening a customer sees that customer's subscriptions in a stable, sensi
 - **FR-001**: The system MUST retain customers and their subscriptions across a complete stop and start of the application, including creations, updates, status changes and deletions.
 - **FR-002**: The system MUST treat a customer together with its subscriptions as a single unit of change: after any failure or interruption, a reader MUST see either the whole of a change or none of it.
 - **FR-003**: The system MUST NOT retain a subscription that is not reachable through an existing customer. Deleting a customer MUST remove its subscriptions.
-- **FR-004**: The system MUST reach a well-defined, immediately usable state when started against empty storage, and MUST state whether demonstration records are present in that state.
-- **FR-005**: The system MUST fail visibly at startup if its storage cannot be reached, rather than starting into a state where requests fail for uninterpretable reasons.
+- **FR-004**: The system MUST write the three demonstration records when, and only when, it starts against empty storage. On any subsequent start it MUST leave stored data untouched — seeding nothing, restoring nothing, and reconciling nothing. Once written, those records MUST behave as ordinary data: edits to them persist, and a deleted one MUST stay deleted across restarts.
+- **FR-005**: The system MUST fail visibly at startup if its storage cannot be reached, rather than starting into a state where requests fail for uninterpretable reasons. Where storage runs as a separate service, the system MUST first wait a bounded time for it to become ready, and MUST report the failure only after that wait elapses — a service still starting up is a normal condition, not a fault.
+- **FR-023**: A single documented command MUST bring up a working stack — application, web interface and storage — with no manual step between them. Startup MUST NOT depend on the order in which parts of the stack happen to become ready.
 - **FR-006**: The system MUST report a request it cannot complete for storage reasons as a server-side failure, disclosing nothing about the storage layer, and MUST NOT report it as a caller input error.
+- **FR-022**: Where two changes to the same customer overlap, the later write MUST prevail. The system MUST NOT introduce conflict detection, a version token, or any new rejection response for a stale write — each would alter the contract preserved by FR-007 and FR-008. The system MUST, however, guarantee that concurrent writes never leave a customer's subscription collection structurally damaged: no subscription may be duplicated, and none that was successfully added may disappear.
 
 **Contract preservation**
 
 - **FR-007**: The system MUST keep every endpoint's status code identical to the recorded reference of current behaviour.
 - **FR-008**: The system MUST keep every response's field names, field presence and value types identical to that reference. An optional field with no value MUST remain present and empty rather than being omitted.
 - **FR-009**: The system MUST return monetary amounts with the same numeric representation as before, without introducing a fractional part or a change of type.
+- **FR-024**: The system MUST store monetary amounts as exact decimals, at an explicitly declared precision and scale sufficient for currency. Storing or returning an amount MUST NOT round it, truncate it, or route it through a floating-point representation. An amount submitted with a fractional part MUST be returned identical to what was submitted.
 - **FR-010**: The system MUST return subscription status as its name in text form, never as a numeric code.
 - **FR-011**: The system MUST continue to normalise billing cycle to lower case on write, and MUST continue to accept only the two recognised cycles.
 - **FR-012**: The system MUST continue to derive a new subscription's status from its start date — not yet started if the start date is in the future, otherwise active — and MUST continue to ignore any status supplied by the caller on creation.
@@ -151,4 +163,7 @@ Rationale for choosing a stated order over reproducing the current one: the pres
 - **Demonstration records stay.** The three demonstration customers exist so the interface is not empty on a fresh start and so the recorded behaviour reference has something to read. This specification assumes they remain available on a fresh start; how that is arranged is an implementation matter.
 - **Timestamps are already recorded.** Creation and modification times exist on both entities today, so FR-020 needs no new field.
 - **The recorded reference is trustworthy.** `docs/api-baseline.md` was verified to reproduce identically across repeated runs and across a restart before being relied upon here. Its regeneration is part of this feature.
+- **Storage credentials never enter the repository.** If the chosen storage needs credentials, they come from configuration supplied at run time. Nothing secret is committed. Recorded as an assumption rather than raised as a question because there is no defensible alternative.
+- **Diagnostics follow existing practice.** Services already log their significant outcomes. A storage failure is expected to be logged with enough detail for an operator to act on, while FR-006 keeps that detail out of the response a caller sees. No new diagnostic mechanism is required; matching what is already there is sufficient.
+- **No performance target is set beyond current behaviour.** At the assumed scale, reads that already feel immediate must continue to. No latency or throughput number is stated, because none would be verifiable at this scale without inventing a load profile the product does not have.
 - **One known defect is deliberately left alone.** Not-found responses currently come in two different shapes, tracked separately. Correcting it inside this feature would mix an intended contract change into the very comparison that proves the contract did not change, so FR-007 and FR-008 preserve the inconsistency as it stands.

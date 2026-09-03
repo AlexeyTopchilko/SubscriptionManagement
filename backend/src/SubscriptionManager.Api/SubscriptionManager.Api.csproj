@@ -10,6 +10,24 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
+    <!--
+      TODO(T006): restore this reference once api.nuget.org is reachable again.
+      Microsoft.EntityFrameworkCore.Design is build-time only — it is required to
+      GENERATE migrations (`dotnet ef migrations add`), never to run the app.
+      Applying migrations at runtime needs only EntityFrameworkCore.Relational,
+      which is already referenced above.
+
+      It is commented out rather than left in place because it is absent from the
+      local NuGet cache, and an unresolvable reference breaks `dotnet build` —
+      the only verification available while the feed is unreachable.
+
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+    -->
   </ItemGroup>
 
 </Project>

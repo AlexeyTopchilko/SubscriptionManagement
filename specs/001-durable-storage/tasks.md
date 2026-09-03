@@ -8,6 +8,33 @@
 
 **Organization**: Grouped by user story. Note the execution order below — it is not priority order, and that is deliberate.
 
+---
+
+## ⚠️ Status: 13 of 24 done, blocked on an unreachable package feed
+
+**Done (13)**: T001–T005, T007–T011, T013, T019, T020. All code is written and
+`dotnet build subscription-manager.sln` reports **0 errors, 0 compiler warnings**.
+
+**Blocked (11)**: T006, T012, T014–T018, T021–T024.
+
+**The blocker**: `api.nuget.org` became unreachable partway through implementation —
+`github.com` answers 200, so general connectivity is fine; NuGet specifically is not.
+`Microsoft.EntityFrameworkCore.Design` is absent from the local package cache and the
+`dotnet ef` tool is not installed, so the initial migration (T006) cannot be generated.
+Without a migration there is no schema, so nothing can be run and nothing verified.
+
+Runtime packages *are* cached, which is why the build passes: `Microsoft.EntityFrameworkCore`,
+`.Relational`, `Npgsql` and the provider all resolve offline. Applying migrations at runtime
+needs only `.Relational`; only *generating* them needs `Design`.
+
+`Microsoft.EntityFrameworkCore.Design` is currently commented out in the `.csproj` with a
+`TODO(T006)`, because an unresolvable package reference breaks the build — and the build is the
+only verification available while the feed is down.
+
+**Deliberately not done**: switching to `EnsureCreated` to sidestep the missing tooling. The
+plan rejected it with reasoning (no upgrade path), and letting a transient network failure
+rewrite a design decision is the wrong trade. Resume at T006 when the feed returns.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies on incomplete tasks)
@@ -34,9 +61,9 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 
 **Purpose**: Dependencies and infrastructure, before any code changes
 
-- [ ] T001 Add `Microsoft.EntityFrameworkCore` 8.0.x, `Npgsql.EntityFrameworkCore.PostgreSQL` 8.0.x and `Microsoft.EntityFrameworkCore.Design` 8.0.x (build-time only) to `backend/src/SubscriptionManager.Api/SubscriptionManager.Api.csproj`, then confirm `dotnet build subscription-manager.sln` still reports 0 errors. If restore stalls for minutes it is the machine's unreachable private Azure DevOps feed — restore against nuget.org only (see quickstart prerequisites)
-- [ ] T002 Add a `db` service to `docker-compose.yml` using `postgres:16-alpine`, with a named volume for `/var/lib/postgresql/data`, a `pg_isready` healthcheck, and `depends_on: db: condition: service_healthy` on the `backend` service
-- [ ] T003 [P] Add the connection string to `backend/src/SubscriptionManager.Api/appsettings.json` with a development-only default, overridable by environment variable, and set that variable for the `backend` service in `docker-compose.yml`. No credential that is not a local development default may be committed
+- [X] T001 Add `Microsoft.EntityFrameworkCore` 8.0.x, `Npgsql.EntityFrameworkCore.PostgreSQL` 8.0.x and `Microsoft.EntityFrameworkCore.Design` 8.0.x (build-time only) to `backend/src/SubscriptionManager.Api/SubscriptionManager.Api.csproj`, then confirm `dotnet build subscription-manager.sln` still reports 0 errors. If restore stalls for minutes it is the machine's unreachable private Azure DevOps feed — restore against nuget.org only (see quickstart prerequisites)
+- [X] T002 Add a `db` service to `docker-compose.yml` using `postgres:16-alpine`, with a named volume for `/var/lib/postgresql/data`, a `pg_isready` healthcheck, and `depends_on: db: condition: service_healthy` on the `backend` service
+- [X] T003 [P] Add the connection string to `backend/src/SubscriptionManager.Api/appsettings.json` with a development-only default, overridable by environment variable, and set that variable for the `backend` service in `docker-compose.yml`. No credential that is not a local development default may be committed
 
 **Checkpoint**: dependencies resolve, the stack has somewhere to store data
 
@@ -48,11 +75,11 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create `backend/src/SubscriptionManager.Api/Data/AppDbContext.cs` exposing **only** `DbSet<Customer>` — no `DbSet<Subscription>`, per Principle I. Configure per [data-model.md](./data-model.md): `Price` as **unconstrained `numeric`** (adding precision or scale is a contract break — see research.md), all `DateTime` columns as `timestamp with time zone`, `Guid` as `uuid`, the subscription collection as a navigation with cascade delete on the foreign key, and indexes on `Customers(CreatedAt, Id)` and `Subscriptions(CustomerId, CreatedAt, Id)`. **Do NOT add a unique index on `Customers.Email`, and do NOT add check constraints for price or dates.** Both read as obvious hardening and both move client errors from 400/409 to 500, breaking FR-015 and baseline case 9. Uniqueness and validation stay in the services (Principle III)
-- [ ] T005 In `backend/src/SubscriptionManager.Api/Extensions/ServiceCollectionExtensions.cs` register `AddDbContext<AppDbContext>` with the Npgsql provider and change both repository registrations from `AddSingleton` to `AddScoped`. A singleton capturing a scoped `DbContext` surfaces as concurrency corruption rather than a startup error
+- [X] T004 Create `backend/src/SubscriptionManager.Api/Data/AppDbContext.cs` exposing **only** `DbSet<Customer>` — no `DbSet<Subscription>`, per Principle I. Configure per [data-model.md](./data-model.md): `Price` as **unconstrained `numeric`** (adding precision or scale is a contract break — see research.md), all `DateTime` columns as `timestamp with time zone`, `Guid` as `uuid`, the subscription collection as a navigation with cascade delete on the foreign key, and indexes on `Customers(CreatedAt, Id)` and `Subscriptions(CustomerId, CreatedAt, Id)`. **Do NOT add a unique index on `Customers.Email`, and do NOT add check constraints for price or dates.** Both read as obvious hardening and both move client errors from 400/409 to 500, breaking FR-015 and baseline case 9. Uniqueness and validation stay in the services (Principle III)
+- [X] T005 In `backend/src/SubscriptionManager.Api/Extensions/ServiceCollectionExtensions.cs` register `AddDbContext<AppDbContext>` with the Npgsql provider and change both repository registrations from `AddSingleton` to `AddScoped`. A singleton capturing a scoped `DbContext` surfaces as concurrency corruption rather than a startup error
 - [ ] T006 Generate the initial migration into `backend/src/SubscriptionManager.Api/Data/Migrations/` and commit it. Read the generated SQL and confirm the price column is `numeric` with no precision or scale, timestamps are `timestamptz`, and the foreign key cascades
-- [ ] T007 In `backend/src/SubscriptionManager.Api/Program.cs` apply pending migrations at startup, preceded by a **bounded** wait for the database to accept connections — retry for up to **30 seconds at roughly one-second intervals**, then fail visibly with a message naming the database as the cause (FR-005). A service still starting is a normal condition, not a fault; exiting on the first refused connection breaks FR-023
-- [ ] T008 Create `backend/src/SubscriptionManager.Api/Data/DatabaseSeeder.cs` that writes the three demonstration customers and five subscriptions **only when the customer count is zero** (FR-004), reproducing the exact values and `CreatedAt` timestamps currently in `InMemoryCustomerRepository.SeedData()`. Do **not** use EF Core `HasData` — model seeding reconciles on every migration and would resurrect a deleted demonstration customer. Call the seeder after migrations in `Program.cs`
+- [X] T007 In `backend/src/SubscriptionManager.Api/Program.cs` apply pending migrations at startup, preceded by a **bounded** wait for the database to accept connections — retry for up to **30 seconds at roughly one-second intervals**, then fail visibly with a message naming the database as the cause (FR-005). A service still starting is a normal condition, not a fault; exiting on the first refused connection breaks FR-023
+- [X] T008 Create `backend/src/SubscriptionManager.Api/Data/DatabaseSeeder.cs` that writes the three demonstration customers and five subscriptions **only when the customer count is zero** (FR-004), reproducing the exact values and `CreatedAt` timestamps currently in `InMemoryCustomerRepository.SeedData()`. Do **not** use EF Core `HasData` — model seeding reconciles on every migration and would resurrect a deleted demonstration customer. Call the seeder after migrations in `Program.cs`
 
 **Checkpoint**: the application starts against a real database with seeded data; repositories are not yet backed by it
 
@@ -64,9 +91,9 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 
 **Independent Test**: create a customer and a subscription, restart the API, read them back unchanged. This story alone delivers the entire point of the feature.
 
-- [ ] T009 [US1] Create `backend/src/SubscriptionManager.Api/Repositories/EfCustomerRepository.cs` implementing `ICustomerRepository` with its signature unchanged. Reads load subscriptions via `Include`; writes mutate the tracked customer graph and save once, so the aggregate is one unit of change (FR-002)
-- [ ] T010 [US1] Create `backend/src/SubscriptionManager.Api/Repositories/EfSubscriptionRepository.cs` implementing `ISubscriptionRepository` with **every method still carrying `customerId`** (Principle I). Operate through the parent customer's loaded collection — never a direct subscription query. Deleting a customer must remove its subscriptions by cascade (FR-003)
-- [ ] T011 [US1] Delete `backend/src/SubscriptionManager.Api/Repositories/InMemoryCustomerRepository.cs` and `InMemorySubscriptionRepository.cs`. Two live implementations of one interface leave the authoritative one decided by registration order, and no requirement calls for an in-memory mode
+- [X] T009 [US1] Create `backend/src/SubscriptionManager.Api/Repositories/EfCustomerRepository.cs` implementing `ICustomerRepository` with its signature unchanged. Reads load subscriptions via `Include`; writes mutate the tracked customer graph and save once, so the aggregate is one unit of change (FR-002)
+- [X] T010 [US1] Create `backend/src/SubscriptionManager.Api/Repositories/EfSubscriptionRepository.cs` implementing `ISubscriptionRepository` with **every method still carrying `customerId`** (Principle I). Operate through the parent customer's loaded collection — never a direct subscription query. Deleting a customer must remove its subscriptions by cascade (FR-003)
+- [X] T011 [US1] Delete `backend/src/SubscriptionManager.Api/Repositories/InMemoryCustomerRepository.cs` and `InMemorySubscriptionRepository.cs`. Two live implementations of one interface leave the authoritative one decided by registration order, and no requirement calls for an in-memory mode
 - [ ] T012 [US1] Verify every restart scenario in [quickstart.md](./quickstart.md) step 4 — create, update, status change, delete, **deleting a seeded customer** (must not reappear), and an idle restart. The seeded-delete row is the one most likely to fail: it breaks if seeding reconciles instead of checking for an empty database
 
 **Checkpoint**: US1 is independently testable and complete — the feature's core value is delivered
@@ -81,7 +108,7 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 
 **Why here**: implemented before US2 is verified, because the ordering change is the single declared baseline difference. Verifying the contract first would mix an intended change with any unintended one in the same diff.
 
-- [ ] T013 [US3] Apply `ORDER BY CreatedAt, Id` in `backend/src/SubscriptionManager.Api/Repositories/EfCustomerRepository.cs` (the customer list) and `backend/src/SubscriptionManager.Api/Repositories/EfSubscriptionRepository.cs` (subscriptions within a customer), pushed to the database rather than sorted in memory. `Id` is the stable tiebreaker FR-021 requires for records sharing a creation instant — plausible for seeded rows written in one batch
+- [X] T013 [US3] Apply `ORDER BY CreatedAt, Id` in `backend/src/SubscriptionManager.Api/Repositories/EfCustomerRepository.cs` (the customer list) and `backend/src/SubscriptionManager.Api/Repositories/EfSubscriptionRepository.cs` (subscriptions within a customer), pushed to the database rather than sorted in memory. `Id` is the stable tiebreaker FR-021 requires for records sharing a creation instant — plausible for seeded rows written in one batch
 - [ ] T014 [US3] Verify determinism per [quickstart.md](./quickstart.md): read collections repeatedly with a restart in between and confirm identical order every time (SC-004). Confirm the one demonstration customer whose two subscriptions have creation times opposite to their insertion order now returns them oldest-first — this is the declared change, and it is expected
 
 **Checkpoint**: ordering is deterministic and the declared difference is the only one introduced
@@ -105,8 +132,8 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T019 [P] Correct the now-false statements in `CLAUDE.md` and `docs/CODEBASE_MAP.md`: data is no longer lost on process restart, and repositories are no longer Singleton. Document the new `docker-compose` database service and the connection-string configuration. Both files describe current behaviour, so a change that makes them wrong is incomplete until they are fixed
-- [ ] T020 [P] Add a comment to `SubscriptionStatus` in `backend/src/SubscriptionManager.Api/Models/Subscription.cs` warning that the enum persists as an integer, so member order is now a storage contract — reordering or inserting a member anywhere but the end silently reinterprets every stored row. A hazard this feature creates; the wire is insulated only because JSON serialises by name
+- [X] T019 [P] Correct the now-false statements in `CLAUDE.md` and `docs/CODEBASE_MAP.md`: data is no longer lost on process restart, and repositories are no longer Singleton. Document the new `docker-compose` database service and the connection-string configuration. Both files describe current behaviour, so a change that makes them wrong is incomplete until they are fixed
+- [X] T020 [P] Add a comment to `SubscriptionStatus` in `backend/src/SubscriptionManager.Api/Models/Subscription.cs` warning that the enum persists as an integer, so member order is now a storage contract — reordering or inserting a member anywhere but the end silently reinterprets every stored row. A hazard this feature creates; the wire is insulated only because JSON serialises by name
 - [ ] T021 Regenerate and commit `docs/api-baseline.md` so it reflects the new intended behaviour. The committed diff on that file must contain **only** the declared swap
 - [ ] T022 Final gate: `docker-compose down -v` then `docker-compose up --build` from a genuinely empty volume, confirming a working stack with no manual step (FR-023, FR-005). Then `dotnet build subscription-manager.sln` and `npm run build` in `frontend/`, both clean
 - [ ] T023 Verify the storage-failure paths, which nothing else exercises. Stop the `db` container while the API runs and confirm a request returns **500** with a generic message disclosing nothing about the storage layer, and specifically **not** a 400 (FR-006). Then start the API with `db` down and confirm it fails visibly, naming the database, **after** the 30-second wait rather than on the first refused connection (FR-005, SC-006). Added during analysis: both requirements had zero coverage

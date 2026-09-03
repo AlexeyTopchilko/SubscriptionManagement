@@ -26,7 +26,7 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // Application services
-builder.Services.AddApplicationServices();
+builder.Services.AddApplicationServices(builder.Configuration);
 
 // CORS — allow React dev server
 builder.Services.AddCors(options =>
@@ -43,6 +43,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Storage: wait for it, migrate it, seed it if empty — before serving traffic.
+await app.InitializeDatabaseAsync();
 
 // Middleware
 app.UseMiddleware<GlobalExceptionMiddleware>();

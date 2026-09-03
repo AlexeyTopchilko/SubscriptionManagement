@@ -56,8 +56,13 @@ Restart the API so the store is at its seeded state, then:
 git diff --no-index docs/api-baseline.md after.md
 ```
 
-**Expect exactly one difference**: one demonstration customer's two subscriptions swapping
-position, in cases 1, 2 and 4. That is the declared ordering change from FR-020.
+**Expect differences in exactly four cases — 1, 2, 4 and 5 — all of them the same swap**: one
+demonstration customer's two subscriptions changing position, which is the declared ordering
+change from FR-020.
+
+Case 5 is the one that surprises: it asks for a single subscription by id, but the capture script
+picks `subscriptions[0]`, so after the reordering it returns the *other* subscription — different
+plan, price, status and notes. That is expected, not a regression.
 
 **Any other difference is a regression** and must be fixed, not explained. The allow-list has one
 entry and it is closed.

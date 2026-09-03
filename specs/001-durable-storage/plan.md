@@ -48,7 +48,9 @@ thousands of customers, reads that feel immediate today must continue to.
 
 **Constraints**: the wire contract may not change except for the declared ordering swap. No new
 endpoint, no new DTO field, no change to the frontend. Storage credentials never enter the
-repository.
+repository. Database readiness wait: **30 seconds maximum, retried at roughly one-second
+intervals**, then fail with a message naming the database as the cause — a number, because
+"bounded" without one leaves quickstart's "too short" check unfalsifiable.
 
 **Scale/Scope**: single application instance. Two tables. Roughly 11 endpoints already exist and
 none are added.

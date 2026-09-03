@@ -70,9 +70,14 @@ change that causes both. This must be checked **by hand** — see [quickstart.md
 
 `ORDER BY createdAt, id` for customers, and for subscriptions within a customer.
 
-One permitted difference, declared in advance in the spec: one demonstration customer holds two
+One permitted change, declared in advance in the spec: one demonstration customer holds two
 subscriptions whose insertion order does not match their creation times, so they swap position.
-Visible in baseline cases 1, 2 and 4.
+
+It surfaces in **four** baseline cases, not three. Cases 1 and 2 embed the customer's subscription
+list; case 4 lists it directly; and case 5 asks for the *first* subscription of that customer, so
+after the swap it returns a different subscription altogether — different plan, price, status and
+notes. The capture script selects `subscriptions[0]`, which is why the reordering propagates into
+what looks like a single-record lookup.
 
 **Any other difference is a regression.** The declared swap is the only entry on the allow-list,
 and the allow-list is closed — a difference explained after the fact is a regression that was not

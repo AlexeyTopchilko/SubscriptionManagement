@@ -97,16 +97,18 @@ Someone opening a customer sees that customer's subscriptions in a stable, sensi
 - **FR-002**: The system MUST treat a customer together with its subscriptions as a single unit of change: after any failure or interruption, a reader MUST see either the whole of a change or none of it.
 - **FR-003**: The system MUST NOT retain a subscription that is not reachable through an existing customer. Deleting a customer MUST remove its subscriptions.
 - **FR-004**: The system MUST write the three demonstration records when, and only when, it starts against empty storage. On any subsequent start it MUST leave stored data untouched — seeding nothing, restoring nothing, and reconciling nothing. Once written, those records MUST behave as ordinary data: edits to them persist, and a deleted one MUST stay deleted across restarts.
-- **FR-005**: The system MUST fail visibly at startup if its storage cannot be reached, rather than starting into a state where requests fail for uninterpretable reasons. Where storage runs as a separate service, the system MUST first wait a bounded time for it to become ready, and MUST report the failure only after that wait elapses — a service still starting up is a normal condition, not a fault.
+- **FR-005**: The system MUST fail visibly at startup if its storage cannot be reached, rather than starting into a state where requests fail for uninterpretable reasons. Where storage runs as a separate service, the system MUST first wait a bounded time for it to become ready — at least 30 seconds, retrying at roughly one-second intervals — and MUST report the failure only after that wait elapses. A service still starting up is a normal condition, not a fault.
 - **FR-023**: A single documented command MUST bring up a working stack — application, web interface and storage — with no manual step between them. Startup MUST NOT depend on the order in which parts of the stack happen to become ready.
 - **FR-006**: The system MUST report a request it cannot complete for storage reasons as a server-side failure, disclosing nothing about the storage layer, and MUST NOT report it as a caller input error.
 - **FR-022**: Where two changes to the same customer overlap, the later write MUST prevail. The system MUST NOT introduce conflict detection, a version token, or any new rejection response for a stale write — each would alter the contract preserved by FR-007 and FR-008. The system MUST, however, guarantee that concurrent writes never leave a customer's subscription collection structurally damaged: no subscription may be duplicated, and none that was successfully added may disappear.
+
+  *Softened during analysis.* This guarantee follows from writing the aggregate as a single tracked graph in a single application instance, per the single-instance assumption below. It is accepted **without a dedicated test**: reproducing a write race by hand, with no test project available, would not reliably detect a lost or duplicated record — and a check that cannot fail is not verification, it is decoration. Recorded as derived and untested rather than left as a MUST with nothing behind it.
 
 **Contract preservation**
 
 - **FR-007**: The system MUST keep every endpoint's status code identical to the recorded reference of current behaviour.
 - **FR-008**: The system MUST keep every response's field names, field presence and value types identical to that reference. An optional field with no value MUST remain present and empty rather than being omitted.
-- **FR-009**: The system MUST return monetary amounts with the same numeric representation as before, without introducing a fractional part or a change of type.
+- **FR-009**: Monetary amounts MUST keep the representation recorded in the reference. The specific guarantee is stated once, in FR-024; this entry exists only to place it among the contract-preservation requirements. *(Reduced to a cross-reference during analysis — it and FR-024 had become near-duplicates after FR-024 was amended, and two requirements for one property diverge on the next edit.)*
 - **FR-024**: The system MUST store monetary amounts exactly and MUST return each amount in the identical form it was submitted, including its number of decimal places. Storing or returning an amount MUST NOT round it, truncate it, pad it with additional decimal places, or route it through a floating-point representation. An amount submitted as `4900` MUST be returned as `4900` and not as `4900.0` or `4900.00`; an amount submitted as `49.99` MUST be returned as `49.99`.
 
   *Amended during planning.* This requirement originally demanded "an explicitly declared precision and scale". That wording was wrong, and measurement proved it: a fixed scale forces every amount to that many decimal places, so a declared scale of 2 turns `4900` into `4900.00` on the wire — a change FR-009 forbids. The real requirement is exactness plus preservation of the submitted form, which a fixed scale actively prevents. See `research.md` for the measurements.
@@ -135,7 +137,7 @@ FR-020 changes one observable thing, and it is declared here so that verificatio
 
 One demonstration customer currently holds two subscriptions in an order that does **not** match their creation times: the later-created subscription is listed first. That order reflects the sequence in which the demonstration records were appended in memory, nothing more. Under FR-020 those two subscriptions swap places.
 
-- **Expected**: this specific pair swapping, visible in the three reference cases that read customer collections.
+- **Expected**: this specific pair swapping, visible in four reference cases — 1 and 2, which embed the customer's subscription list; 4, which lists it directly; and 5, which selects the *first* subscription of that customer and therefore returns a different subscription altogether, changing its plan, price, status and notes.
 - **Not expected**: any other difference anywhere in the reference. Every other difference is a regression and MUST be fixed rather than explained.
 
 The recorded reference MUST be regenerated as part of this feature, and its own change MUST contain only this swap.
@@ -152,7 +154,7 @@ Rationale for choosing a stated order over reproducing the current one: the pres
 ### Measurable Outcomes
 
 - **SC-001**: Records entered before an application restart are 100% present and unchanged after it — zero loss across creations, updates, status changes and deletions.
-- **SC-002**: Of the 29 recorded behaviour cases, 28 match exactly, and the 29th differs only by the pre-declared ordering swap. No other difference is present.
+- **SC-002**: Of the 29 recorded behaviour cases, 25 match exactly, and 4 — cases 1, 2, 4 and 5 — differ only by the pre-declared ordering swap. No other difference is present.
 - **SC-003**: The web interface completes every flow it completes today — browsing customers, adding a subscription, changing a status, deleting — with zero changes to its own code.
 - **SC-004**: Reading any collection ten times in succession, with a restart in the middle, yields the same order all ten times.
 - **SC-005**: A first start against empty storage reaches a usable state with no manual intervention, and a subsequent start against populated storage neither duplicates nor discards anything.

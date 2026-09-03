@@ -48,10 +48,10 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Create `backend/src/SubscriptionManager.Api/Data/AppDbContext.cs` exposing **only** `DbSet<Customer>` — no `DbSet<Subscription>`, per Principle I. Configure per [data-model.md](./data-model.md): `Price` as **unconstrained `numeric`** (adding precision or scale is a contract break — see research.md), all `DateTime` columns as `timestamp with time zone`, `Guid` as `uuid`, the subscription collection as a navigation with cascade delete on the foreign key, and indexes on `Customers(CreatedAt, Id)` and `Subscriptions(CustomerId, CreatedAt, Id)`
+- [ ] T004 Create `backend/src/SubscriptionManager.Api/Data/AppDbContext.cs` exposing **only** `DbSet<Customer>` — no `DbSet<Subscription>`, per Principle I. Configure per [data-model.md](./data-model.md): `Price` as **unconstrained `numeric`** (adding precision or scale is a contract break — see research.md), all `DateTime` columns as `timestamp with time zone`, `Guid` as `uuid`, the subscription collection as a navigation with cascade delete on the foreign key, and indexes on `Customers(CreatedAt, Id)` and `Subscriptions(CustomerId, CreatedAt, Id)`. **Do NOT add a unique index on `Customers.Email`, and do NOT add check constraints for price or dates.** Both read as obvious hardening and both move client errors from 400/409 to 500, breaking FR-015 and baseline case 9. Uniqueness and validation stay in the services (Principle III)
 - [ ] T005 In `backend/src/SubscriptionManager.Api/Extensions/ServiceCollectionExtensions.cs` register `AddDbContext<AppDbContext>` with the Npgsql provider and change both repository registrations from `AddSingleton` to `AddScoped`. A singleton capturing a scoped `DbContext` surfaces as concurrency corruption rather than a startup error
 - [ ] T006 Generate the initial migration into `backend/src/SubscriptionManager.Api/Data/Migrations/` and commit it. Read the generated SQL and confirm the price column is `numeric` with no precision or scale, timestamps are `timestamptz`, and the foreign key cascades
-- [ ] T007 In `backend/src/SubscriptionManager.Api/Program.cs` apply pending migrations at startup, preceded by a **bounded** wait for the database to accept connections — retry for a stated limit, then fail visibly with a message naming the database as the cause (FR-005). A service still starting is a normal condition, not a fault; exiting on the first refused connection breaks FR-023
+- [ ] T007 In `backend/src/SubscriptionManager.Api/Program.cs` apply pending migrations at startup, preceded by a **bounded** wait for the database to accept connections — retry for up to **30 seconds at roughly one-second intervals**, then fail visibly with a message naming the database as the cause (FR-005). A service still starting is a normal condition, not a fault; exiting on the first refused connection breaks FR-023
 - [ ] T008 Create `backend/src/SubscriptionManager.Api/Data/DatabaseSeeder.cs` that writes the three demonstration customers and five subscriptions **only when the customer count is zero** (FR-004), reproducing the exact values and `CreatedAt` timestamps currently in `InMemoryCustomerRepository.SeedData()`. Do **not** use EF Core `HasData` — model seeding reconciles on every migration and would resurrect a deleted demonstration customer. Call the seeder after migrations in `Program.cs`
 
 **Checkpoint**: the application starts against a real database with seeded data; repositories are not yet backed by it
@@ -94,7 +94,7 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 
 **Independent Test**: exercise every endpoint and compare each status code and response body against `docs/api-baseline.md`.
 
-- [ ] T015 [US2] Run `./tools/capture-api-baseline.ps1 -OutFile after.md` against the migrated API and diff it against `docs/api-baseline.md`. **Exactly one difference is permitted**: the subscription swap in cases 1, 2 and 4. Treat every other difference as a regression to fix, not to explain — the allow-list has one entry and it is closed
+- [ ] T015 [US2] Run `./tools/capture-api-baseline.ps1 -OutFile after.md` against the migrated API and diff it against `docs/api-baseline.md`. **Differences are permitted in exactly four cases — 1, 2, 4 and 5 — and all four must be the same swap.** Case 5 is the counter-intuitive one: it asks for a single subscription by id, but the capture script picks `subscriptions[0]`, so after reordering it returns the other subscription, with a different plan, price, status and notes. Treat every other difference as a regression to fix, not to explain — the allow-list is closed
 - [ ] T016 [US2] Check timestamps **by hand** per [quickstart.md](./quickstart.md) step 5. The baseline normalises them to `<timestamp>`, so it cannot see a timezone shift or lost sub-second precision — and moving to a timezone-aware column is exactly what causes both. Confirm a trailing `Z` and sub-second digits, matching the shape recorded before the change
 - [ ] T017 [US2] Post a subscription priced `49.99` and confirm it returns `49.99` — not `49.990`, not `50` — and that a seeded whole amount still returns `4900`, not `4900.0` (FR-024). Every existing price is a whole number, so without this the fractional path ships untested. This is the specific defect that eliminated SQLite
 - [ ] T018 [US2] Drive the SPA end to end — list customers, open one, add a subscription, change its status, delete it — with **zero** changes to `frontend/` (FR-017). Also confirm `GET /api/subscriptions` still returns 404 and no repository method takes a bare subscription id (Principle I)
@@ -109,6 +109,8 @@ So US3, the lowest-priority story, is implemented before the higher-priority one
 - [ ] T020 [P] Add a comment to `SubscriptionStatus` in `backend/src/SubscriptionManager.Api/Models/Subscription.cs` warning that the enum persists as an integer, so member order is now a storage contract — reordering or inserting a member anywhere but the end silently reinterprets every stored row. A hazard this feature creates; the wire is insulated only because JSON serialises by name
 - [ ] T021 Regenerate and commit `docs/api-baseline.md` so it reflects the new intended behaviour. The committed diff on that file must contain **only** the declared swap
 - [ ] T022 Final gate: `docker-compose down -v` then `docker-compose up --build` from a genuinely empty volume, confirming a working stack with no manual step (FR-023, FR-005). Then `dotnet build subscription-manager.sln` and `npm run build` in `frontend/`, both clean
+- [ ] T023 Verify the storage-failure paths, which nothing else exercises. Stop the `db` container while the API runs and confirm a request returns **500** with a generic message disclosing nothing about the storage layer, and specifically **not** a 400 (FR-006). Then start the API with `db` down and confirm it fails visibly, naming the database, **after** the 30-second wait rather than on the first refused connection (FR-005, SC-006). Added during analysis: both requirements had zero coverage
+- [ ] T024 Complete the sequence Principle VI mandates, in order: record the verification results on ALE-9 with concrete evidence, run the `DoD` gate, and **only then** open the pull request. Added during analysis — this sequence was already violated once today on ALE-12, and leaving it out of the executable list is how that repeats
 
 ---
 
@@ -156,7 +158,14 @@ Everything else is sequential. Marking more tasks `[P]` would be decoration.
 
 ## Task count and a deviation worth naming
 
-**22 tasks** across 6 phases: 3 setup, 5 foundational, 4 in US1, 2 in US3, 4 in US2, 4 polish.
+**24 tasks** across 6 phases: 3 setup, 5 foundational, 4 in US1, 2 in US3, 4 in US2, 6 polish.
+
+T023 and T024 were added by `speckit-analyze`, which found four requirements with zero task
+coverage. Two are now covered — FR-006 and SC-006, by T023 — and the constitution's mandated
+workflow sequence became executable rather than implied, by T024. FR-022 was closed the other
+way: softened in the spec to state the guarantee is derived and accepted untested, rather than
+carrying a task whose check could never fail. FR-016 was left uncovered as low-risk, since it is
+satisfied by leaving `Services/` untouched, which the plan already states.
 
 The topic attachment suggests 8–12 tasks for this step. This list is roughly double, for the same reason the feature itself exceeded the attachment's sizing advice: database persistence is a larger change than the `/health` endpoint the attachment had in mind. That deviation was accepted deliberately on ALE-7 and is to be reported in ALE-11.
 

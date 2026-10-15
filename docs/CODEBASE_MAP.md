@@ -145,7 +145,7 @@ subscription-manager/
 |------|---------|
 | [Program.cs](backend/src/SubscriptionManager.Api/Program.cs) | DI wiring, JSON (camelCase + `JsonStringEnumConverter`), CORS policy `AllowFrontend` (`:5173`, `:3000`), Swagger (dev only), pipeline order |
 | [GlobalExceptionMiddleware.cs](backend/src/SubscriptionManager.Api/Middleware/GlobalExceptionMiddleware.cs) | Catch-all: `ArgumentException`/`InvalidOperationException` → 400, `KeyNotFoundException` → 404, else 500 with generic message |
-| [ServiceCollectionExtensions.cs](backend/src/SubscriptionManager.Api/Extensions/ServiceCollectionExtensions.cs) | `AddApplicationServices()` — registers repos (Singleton) + services (Scoped) |
+| [ServiceCollectionExtensions.cs](backend/src/SubscriptionManager.Api/Extensions/ServiceCollectionExtensions.cs) | `AddApplicationServices()` — registers repos (Scoped) + services (Scoped) |
 
 ### Frontend — Routing & Pages
 

@@ -1,0 +1,28 @@
+# Dependencies. Host-installed modules can contain platform-specific
+# binaries that do not run in the Linux image, so the image must install
+# its own.
+node_modules/
+
+# Build output — the image builds its own
+dist/
+build/
+
+# Local configuration and secrets
+.env
+.env.*
+
+# IDE / editor
+.idea/
+.vscode/
+
+# Version control and Docker's own files
+.git/
+.gitignore
+Dockerfile
+.dockerignore
+
+# Noise
+npm-debug.log*
+*.log
+*.tmp
+coverage/

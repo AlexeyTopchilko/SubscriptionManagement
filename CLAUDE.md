@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Codebase Overview
 
-Small full-stack subscription manager: ASP.NET Core 8 Web API backend with in-memory storage, paired with a React 18 + Vite SPA. The backend is organized as Controllers → Services → Repositories with `Customer` as the aggregate root — `Subscription` lives inside `Customer.Subscriptions` and is always accessed under `/api/customers/{customerId}/subscriptions/...`.
+Small full-stack subscription manager: ASP.NET Core 8 Web API backend persisted in PostgreSQL via EF Core, paired with a React 18 + Vite SPA. The backend is organized as Controllers → Services → Repositories with `Customer` as the aggregate root — `Subscription` lives inside `Customer.Subscriptions` and is always accessed under `/api/customers/{customerId}/subscriptions/...`.
 
 **Stack**: .NET 8, ASP.NET Core, Swashbuckle/Swagger; React 18, Vite, React Router 6 (no UI library, inline styles).
 **Structure**: `backend/src/SubscriptionManager.Api/` (single project) + `frontend/src/` (pages, hooks, components, single `api/index.js` client) + `docker-compose.yml` for full-stack run.
@@ -103,7 +103,8 @@ No lint, formatter, or test script is configured.
 
 ### API baseline (regression checking without tests)
 ```powershell
-# Start the API fresh first — storage is in-memory, so leftover mutations shift the seed data
+# Start from a clean database first — leftover mutations from earlier runs shift the seed data
+# (docker-compose down -v, then up)
 ./tools/capture-api-baseline.ps1                       # regenerates docs/api-baseline.md
 
 # After a change that could alter the wire contract:
@@ -126,8 +127,18 @@ docker-compose up        # backend :5000, frontend (nginx) :80
 
 ### Backend data model — Customer is the aggregate root
 `Subscription` is stored **inside** the parent `Customer.Subscriptions` list. There is no separate subscription store. Consequences:
-- `InMemorySubscriptionRepository` is a façade over `ICustomerRepository`: every operation loads the customer, mutates its list, and saves the customer back.
-- Repositories are registered as **Singleton** (in `Extensions/ServiceCollectionExtensions.cs`) so in-memory state survives across requests. All data is lost on process restart.
+- `EfSubscriptionRepository` reaches every subscription through its parent customer: it loads the customer with its subscriptions included, mutates that collection, and saves the aggregate as one unit. `AppDbContext` deliberately exposes **no `DbSet<Subscription>`** — that would be the second access path the aggregate rule forbids.
+- Repositories are registered as **Scoped** (in `Extensions/ServiceCollectionExtensions.cs`), like the services and the `DbContext`. They were Singleton only to keep in-memory state alive between requests; with external storage a singleton holding a `DbContext` would be a lifetime violation that shows up as concurrency corruption rather than a startup error.
+- **Data survives process restarts.** Storage is PostgreSQL, reached through EF Core. Migrations are applied at startup, and the three demonstration records are written only when the database is empty — so a deleted demonstration customer stays deleted.
+
+### Storage layer
+
+- `Data/AppDbContext.cs` is the only place EF Core appears, keeping the layering rule intact — no controller and no service references it.
+- **`Price` is mapped to `numeric` with no precision or scale, deliberately.** A declared scale pads every amount to that many decimal places, so `numeric(18,2)` returns `4900` as `4900.00` and the wire contract breaks. Do not "tighten" it. Measured — see `specs/001-durable-storage/research.md`.
+- **No unique index on `Customers.Email`, and no check constraints** on price or dates. Those rules live in the services and surface as `400`/`409`; a storage constraint would report them as `500`.
+- `SubscriptionStatus` persists as its underlying integer, so **the enum's member order is now a storage contract** — reordering it silently reinterprets existing rows. Append only.
+- Timestamps use `timestamp with time zone`, which requires `DateTime.Kind == Utc`. Every current caller satisfies this (the SPA sends `toISOString()`), but a client posting a date without a `Z` would get a 500.
+- Connection string comes from `ConnectionStrings:DefaultConnection`, overridden in containers by the `ConnectionStrings__DefaultConnection` environment variable. Nothing secret is committed.
 - Services are **Scoped**.
 - API routes reflect the aggregate: subscriptions live under `/api/customers/{customerId}/subscriptions/...` and always require a `customerId`.
 

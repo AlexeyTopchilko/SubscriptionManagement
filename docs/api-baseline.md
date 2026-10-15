@@ -72,19 +72,6 @@ Response:
       {
         "id": "<guid>",
         "customerId": "<guid>",
-        "plan": "Pro",
-        "status": "Active",
-        "price": 4900,
-        "billingCycle": "monthly",
-        "startDate": "<timestamp>",
-        "endDate": "<timestamp>",
-        "createdAt": "<timestamp>",
-        "updatedAt": "<timestamp>",
-        "notes": null
-      },
-      {
-        "id": "<guid>",
-        "customerId": "<guid>",
         "plan": "Basic",
         "status": "Cancelled",
         "price": 1900,
@@ -94,6 +81,19 @@ Response:
         "createdAt": "<timestamp>",
         "updatedAt": "<timestamp>",
         "notes": "Customer switched to the Pro plan"
+      },
+      {
+        "id": "<guid>",
+        "customerId": "<guid>",
+        "plan": "Pro",
+        "status": "Active",
+        "price": 4900,
+        "billingCycle": "monthly",
+        "startDate": "<timestamp>",
+        "endDate": "<timestamp>",
+        "createdAt": "<timestamp>",
+        "updatedAt": "<timestamp>",
+        "notes": null
       }
     ]
   },
@@ -182,19 +182,6 @@ Response:
     {
       "id": "<guid>",
       "customerId": "<guid>",
-      "plan": "Pro",
-      "status": "Active",
-      "price": 4900,
-      "billingCycle": "monthly",
-      "startDate": "<timestamp>",
-      "endDate": "<timestamp>",
-      "createdAt": "<timestamp>",
-      "updatedAt": "<timestamp>",
-      "notes": null
-    },
-    {
-      "id": "<guid>",
-      "customerId": "<guid>",
       "plan": "Basic",
       "status": "Cancelled",
       "price": 1900,
@@ -204,6 +191,19 @@ Response:
       "createdAt": "<timestamp>",
       "updatedAt": "<timestamp>",
       "notes": "Customer switched to the Pro plan"
+    },
+    {
+      "id": "<guid>",
+      "customerId": "<guid>",
+      "plan": "Pro",
+      "status": "Active",
+      "price": 4900,
+      "billingCycle": "monthly",
+      "startDate": "<timestamp>",
+      "endDate": "<timestamp>",
+      "createdAt": "<timestamp>",
+      "updatedAt": "<timestamp>",
+      "notes": null
     }
   ]
 }
@@ -239,19 +239,6 @@ Response:
   {
     "id": "<guid>",
     "customerId": "<guid>",
-    "plan": "Pro",
-    "status": "Active",
-    "price": 4900,
-    "billingCycle": "monthly",
-    "startDate": "<timestamp>",
-    "endDate": "<timestamp>",
-    "createdAt": "<timestamp>",
-    "updatedAt": "<timestamp>",
-    "notes": null
-  },
-  {
-    "id": "<guid>",
-    "customerId": "<guid>",
     "plan": "Basic",
     "status": "Cancelled",
     "price": 1900,
@@ -261,6 +248,19 @@ Response:
     "createdAt": "<timestamp>",
     "updatedAt": "<timestamp>",
     "notes": "Customer switched to the Pro plan"
+  },
+  {
+    "id": "<guid>",
+    "customerId": "<guid>",
+    "plan": "Pro",
+    "status": "Active",
+    "price": 4900,
+    "billingCycle": "monthly",
+    "startDate": "<timestamp>",
+    "endDate": "<timestamp>",
+    "createdAt": "<timestamp>",
+    "updatedAt": "<timestamp>",
+    "notes": null
   }
 ]
 ```
@@ -277,15 +277,15 @@ Response:
 {
   "id": "<guid>",
   "customerId": "<guid>",
-  "plan": "Pro",
-  "status": "Active",
-  "price": 4900,
+  "plan": "Basic",
+  "status": "Cancelled",
+  "price": 1900,
   "billingCycle": "monthly",
   "startDate": "<timestamp>",
   "endDate": "<timestamp>",
   "createdAt": "<timestamp>",
   "updatedAt": "<timestamp>",
-  "notes": null
+  "notes": "Customer switched to the Pro plan"
 }
 ```
 

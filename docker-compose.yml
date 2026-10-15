@@ -1,4 +1,33 @@
 services:
+  db:
+    image: postgres:16-alpine
+    container_name: submanager-db
+    environment:
+      - POSTGRES_DB=subscriptionmanager
+      - POSTGRES_USER=submanager
+      # Local development default only. Never a real credential — see FR "storage
+      # credentials never enter the repository" in specs/001-durable-storage/spec.md.
+      - POSTGRES_PASSWORD=submanager_dev
+    ports:
+      # Published so the appsettings.json default (Host=localhost;Port=5432) is
+      # actually usable: `dotnet run` on the host can reach this database, and so
+      # can a SQL client. Without this the documented local-development path has
+      # nowhere to connect to.
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # `docker-compose up` starts everything at once, and Postgres takes a few
+      # seconds to accept connections. Without this the backend races the database
+      # on every cold start. The backend also waits on its own side (FR-005) —
+      # belt and braces, because a healthy container is not the same as a ready one
+      # under load.
+      test: ["CMD-SHELL", "pg_isready -U submanager -d subscriptionmanager"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
   backend:
     build:
       context: ./backend
@@ -9,6 +38,12 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:5000
+      # Overrides ConnectionStrings:DefaultConnection from appsettings.json.
+      # The double underscore is ASP.NET Core's separator for nested keys.
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=subscriptionmanager;Username=submanager;Password=submanager_dev
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     build:
@@ -19,3 +54,6 @@ services:
       - "80:80"
     depends_on:
       - backend
+
+volumes:
+  db-data:

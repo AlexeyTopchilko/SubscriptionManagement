@@ -10,6 +10,22 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
+    <!--
+      Build-time only: required to GENERATE migrations (`dotnet ef migrations add`),
+      never to run the application. Applying migrations at runtime needs only
+      EntityFrameworkCore.Relational, which arrives transitively above.
+      PrivateAssets=all keeps it out of the application's own dependencies.
+
+      Keep this version in step with Microsoft.EntityFrameworkCore — the design
+      package reads the runtime's internal APIs and `dotnet ef` refuses to run on a
+      version mismatch.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

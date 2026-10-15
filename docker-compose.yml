@@ -8,6 +8,12 @@ services:
       # Local development default only. Never a real credential — see FR "storage
       # credentials never enter the repository" in specs/001-durable-storage/spec.md.
       - POSTGRES_PASSWORD=submanager_dev
+    ports:
+      # Published so the appsettings.json default (Host=localhost;Port=5432) is
+      # actually usable: `dotnet run` on the host can reach this database, and so
+      # can a SQL client. Without this the documented local-development path has
+      # nowhere to connect to.
+      - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
